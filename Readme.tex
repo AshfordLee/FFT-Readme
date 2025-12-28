@@ -1,0 +1,157 @@
+\documentclass{ctexart}
+\usepackage{amsmath}
+\usepackage{graphicx} % Required for inserting images
+
+\title{FFT Readme}
+
+\date{December 2025}
+
+\begin{document}
+
+\maketitle
+
+\section{Question}
+输入为随机的n维向量
+\[
+\begin{pmatrix} x_1 & x_2 & \dots & x_n \end{pmatrix}^\top
+\]
+
+给定m*n维的矩阵$\psi_{ij}$
+\[
+    \begin{pmatrix}
+        \psi_{11} & ... & \psi_{1n} \\
+        \dots\\
+        \dots\\
+        \psi_{m1} & ... & \psi_{mn}
+    \end{pmatrix}
+\]
+以上这个矩阵的元素为symbol的，只考虑符号计算的可优化性
+\newline
+计算目标为：
+\[
+\begin{pmatrix} \psi_{1} & \psi_{2} & \dots & \psi_{n} \end{pmatrix}^\top
+=
+    \begin{pmatrix}
+        \psi_{11} & ... & \psi_{1n} \\
+        \dots\\
+        \dots\\
+        \psi_{m1} & ... & \psi_{mn}
+    \end{pmatrix}
+    \begin{pmatrix} x_1 & x_2 & \dots & x_n \end{pmatrix}^\top
+\]
+待优化目标为上面这个计算总共需要多少次乘法和加法。
+\newline
+定义1次乘法为$\psi_{ij}x_{k}$或者$x_{i}x_{j}$
+定义1次加法为$\psi_{ij}x_{k}+\psi_{pq}x_{r}$
+换言之，如果只和矩阵$\psi_{ij}$有关的不计入，和输入$x_{i}$有关的需计入
+\newline
+我们考虑这个$\psi_{ij}$矩阵为循环矩阵的情况，例如:
+\[
+\begin{pmatrix}
+    a_1 & a_2 & a_3 & a_4 & a_5 & \\
+    a_5 & a_1 & a_2 & a_3 & a_4 & \\
+    a_4 & a_5 & a_1 & a_2 & a_3 & \\
+    a_3 & a_4 & a_5 & a_1 & a_2 & \\
+    a_2 & a_3 & a_4 & a_5 & a_1 & \\
+\end{pmatrix}
+    \begin{pmatrix} x_1 & x_2 & x_3 & x_4 & x_5 \end{pmatrix}^\top
+=
+    \begin{pmatrix}
+        \psi_{1} & \psi_{2} & \psi_{3} & \psi_{4} & \psi_{5} & \\
+    \end{pmatrix}^\top
+\]
+在什么都不干的情况下需要25次乘法和20次加法
+\newline
+我们可以通过一种叫specialization的变化来使得乘法次数降低，例如若要计算
+\[
+    \begin{pmatrix}
+        \omega x_1+\omega^2 x_2+\omega^3 x_3 \\
+        \omega x_2 + \omega^2 x_3 \\
+        x_1 + \omega^2 x_3
+    \end{pmatrix}
+\]
+可以这么算：
+\begin{align*}
+\omega x_2   &= \alpha_1 \\
+\omega^2 x_3 &= \alpha_2 \\
+\omega x_1   &= \alpha_3
+\end{align*}
+那么要算的东西变成了
+\begin{align*}
+    \alpha_3 + \omega(\alpha_1 + \alpha_2) \\
+    \alpha_1 + \alpha_2 \\
+    x_1 + \alpha_2
+\end{align*}
+
+这需要4次乘法和4次加法，substitution是一个可以任选的线性变换$F(x_1,x_2,x_3)=0$,例如$x_1=0$,那么要算的东西就变成了
+\[
+    \begin{pmatrix}
+        \omega^2 x_2+\omega^3 x_3 \\
+        \omega x_2 + \omega^2 x_3 \\
+        \omega^2 x_3
+    \end{pmatrix}
+\]
+此时就只要3次乘法了，注意拿掉的东西要还回去，在这里消失的部分就是
+\[
+\begin{pmatrix}
+    \omega x_1 \\
+    0 \\
+    x_1 \\
+\end{pmatrix}
+\]
+为了方便起见，这个线性变换的系数我们只考虑在${0,1,-1}$中选取，且我们现在只考虑输入向量$\in R^3$的情况，即$x_1,x_2,x_3$
+
+\section{Specialization}
+生成一个向量$\in F_3^{n}$:$(\lambda_1,\lambda_2,\lambda3)$,其中$\lambda_{i} \in {0,1,-1}$,令specialization为:
+\[
+    \lambda_1 x_1 + \lambda_2 x_2 +\lambda_3 x_3 = 0
+\]
+不失一般性，令$\lambda_1=1$,然后把$x_1$替换为$-\lambda_2-\lambda_3$产生新的输出$\Phi_1$,此$\Phi_1$以$x_2,x_3$为输入，距离，如果要计算
+\[
+\begin{pmatrix}
+    ax_1+bx_2 \\
+    b_x1 + ax_2 \\
+\end{pmatrix}
+\]
+若用specialization$x_1-x_2=0$,则变为
+\[
+\begin{pmatrix}
+    ax_1+bx_1 \\
+    ax_1 + bx_1 \\
+\end{pmatrix}
++(x_1-y_1)
+\begin{pmatrix}
+    a-b \\
+    b - a \\
+\end{pmatrix}
+\]
+注意这个新的输出总是由两部分组成，一部分为原来经过specialization之后的部分，另一部分是消失的部分，所以要计算原来的加法和乘法次数即考虑后面两部分的加法乘法次数之和即可。这个过程记作
+\[
+    \Phi_1 =  \Phi_0 + \Psi_0
+\]
+
+\section{Saturation}
+对于这个被简化之后的$\Phi_0$,我们希望着重关注那些成比例的行，因为那些是可以减去乘法次数的，显然在一定的重排后，可以有$\Phi_0 = (\Omega_1 \dots \Omega_m) = (l_1\Omega,\dots,l_k\Omega,\Omega_{k+1},\dots,\Omega_{m})$,这里的$\Omega_k$代表的是要计算的每一行，显然最后一个等号的意思是找出那些有公因式$\Omega$的行并且把公因式提出来，其中$l_{k}$的意思是形式symbol矩阵($\Psi_{mn}$)里面的元素的$Z-$线性组合，在完成了这一步后,这里就被分成两个部分，那些能被提出公因式的是一部分，不能被提出的是剩下的部分，然后对剩下的部分再做specialization即可，举个例子:对
+\[
+    \begin{pmatrix}
+        ax+by+dz \\
+        ax+by+cz \\
+        bx+ay+cz 
+    \end{pmatrix}
+\]
+进行x-y=0的specialization得到
+\begin{align*}
+    (a+b)x+dz \\
+    (a+b)x +cz \\
+    (a+b)x + cz
+\end{align*}
+
+那么最后两行就是能提出公因式的那一部分，第一行就是另一部分
+\section{Collect One}
+在Vanishing Part部分(即做完Specialization后消失的那一部分)，由于要把它加回去，所以这里的乘法次数为$m_1=\dim_{Q} \{\psi_{11},\dots,\psi_{1n}\}$,加法次数暂时统计所有的形式加号出现的次数.
+\section{Collect Two}
+由于这里所有的行都有一个公因式，所以这里的乘法为$m_2=\dim_{Z}\{l_i\}$加上公因式中的乘法次数,这里的$\{l_i\}$有穷序列代表的是公因式前面的系数(式),加法次数也同理
+
+\section{流程}
+输入->Specialization->Saturation(重复直到无成比例的项)->Collect,然后再做另一个Specialization
+\end{document}
